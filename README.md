@@ -55,6 +55,10 @@ Options:
 
   -host	HTTP Host header.
 
+  -cert A PEM eoncoded certificate file..
+  -key  A PEM encoded private key file.
+  -CA   A PEM eoncoded CA's certificate file.
+
   -disable-compression  Disable compression.
   -disable-keepalive    Disable keep-alive, prevents re-use of TCP
                         connections between different HTTP requests.
