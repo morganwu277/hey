@@ -16,9 +16,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	gourl "net/url"
@@ -47,6 +50,9 @@ var (
 	contentType = flag.String("T", "text/html", "")
 	authHeader  = flag.String("a", "", "")
 	hostHeader  = flag.String("host", "", "")
+	certFile    = flag.String("cert", "", "")
+	keyFile     = flag.String("key", "", "")
+	caFile      = flag.String("CA", "", "")
 
 	output = flag.String("o", "", "")
 
@@ -92,6 +98,10 @@ Options:
   -h2 Enable HTTP/2.
 
   -host	HTTP Host header.
+
+  -cert A PEM eoncoded certificate file..
+  -key  A PEM encoded private key file.
+  -CA   A PEM eoncoded CA's certificate file.
 
   -disable-compression  Disable compression.
   -disable-keepalive    Disable keep-alive, prevents re-use of TCP
@@ -212,8 +222,38 @@ func main() {
 	header.Set("User-Agent", ua)
 	req.Header = header
 
+	// by default we use insecure TLS verification
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         req.Host,
+	}
+
+	// see: https://gist.github.com/michaljemala/d6f4e01c4834bf47a9c4
+	if *caFile != "" && *certFile != "" && *keyFile != "" {
+		// Load client cert
+		cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// Load CA cert
+		caCert, err := ioutil.ReadFile(*caFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		// Setup HTTPS client
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
+			ServerName:   req.Host,
+		}
+		tlsConfig.BuildNameToCertificate()
+	}
+
 	w := &requester.Work{
 		Request:            req,
+		TlsConfig:          tlsConfig,
 		RequestBody:        bodyAll,
 		N:                  num,
 		C:                  conc,

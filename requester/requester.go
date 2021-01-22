@@ -49,7 +49,8 @@ type result struct {
 
 type Work struct {
 	// Request is the request to be made.
-	Request *http.Request
+	Request   *http.Request
+	TlsConfig *tls.Config
 
 	RequestBody []byte
 
@@ -236,10 +237,7 @@ func (b *Work) runWorkers() {
 	wg.Add(b.C)
 
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-			ServerName:         b.Request.Host,
-		},
+		TLSClientConfig:     b.TlsConfig,
 		MaxIdleConnsPerHost: min(b.C, maxIdleConn),
 		DisableCompression:  b.DisableCompression,
 		DisableKeepAlives:   b.DisableKeepAlives,
