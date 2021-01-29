@@ -11,10 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 // Command hey is an HTTP load generator.
 package main
-
 import (
 	"crypto/tls"
 	"crypto/x509"
@@ -31,16 +29,13 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
 	"github.com/rakyll/hey/requester"
 )
-
 const (
 	headerRegexp = `^([\w-]+):\s*(.+)`
 	authRegexp   = `^(.+):([^\s].+)`
 	heyUA        = "hey/0.0.1"
 )
-
 var (
 	m           = flag.String("m", "GET", "")
 	headers     = flag.String("h", "", "")
@@ -53,26 +48,20 @@ var (
 	certFile    = flag.String("cert", "", "")
 	keyFile     = flag.String("key", "", "")
 	caFile      = flag.String("CA", "", "")
-
 	output = flag.String("o", "", "")
-
 	c = flag.Int("c", 50, "")
 	n = flag.Int("n", 200, "")
 	q = flag.Float64("q", 0, "")
 	t = flag.Int("t", 20, "")
 	z = flag.Duration("z", 0, "")
-
 	h2   = flag.Bool("h2", false, "")
 	cpus = flag.Int("cpus", runtime.GOMAXPROCS(-1), "")
-
 	disableCompression = flag.Bool("disable-compression", false, "")
 	disableKeepAlives  = flag.Bool("disable-keepalive", false, "")
 	disableRedirects   = flag.Bool("disable-redirects", false, "")
 	proxyAddr          = flag.String("x", "", "")
 )
-
 var usage = `Usage: hey [options...] <url>
-
 Options:
   -n  Number of requests to run. Default is 200.
   -c  Number of workers to run concurrently. Total number of requests cannot
@@ -84,7 +73,6 @@ Options:
   -o  Output type. If none provided, a summary is printed.
       "csv" is the only supported alternative. Dumps the response
       metrics in comma-separated values format.
-
   -m  HTTP method, one of GET, POST, PUT, DELETE, HEAD, OPTIONS.
   -H  Custom HTTP header. You can specify as many as needed by repeating the flag.
       For example, -H "Accept: text/html" -H "Content-Type: application/xml" .
@@ -96,13 +84,10 @@ Options:
   -a  Basic authentication, username:password.
   -x  HTTP Proxy address as host:port.
   -h2 Enable HTTP/2.
-
   -host	HTTP Host header.
-
   -cert A PEM eoncoded certificate file..
   -key  A PEM encoded private key file.
   -CA   A PEM eoncoded CA's certificate file.
-
   -disable-compression  Disable compression.
   -disable-keepalive    Disable keep-alive, prevents re-use of TCP
                         connections between different HTTP requests.
@@ -110,26 +95,21 @@ Options:
   -cpus                 Number of used cpu cores.
                         (default for current machine is %d cores)
 `
-
 func main() {
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, fmt.Sprintf(usage, runtime.NumCPU()))
 	}
-
 	var hs headerSlice
 	flag.Var(&hs, "H", "")
-
 	flag.Parse()
 	if flag.NArg() < 1 {
 		usageAndExit("")
 	}
-
 	runtime.GOMAXPROCS(*cpus)
 	num := *n
 	conc := *c
 	q := *q
 	dur := *z
-
 	if dur > 0 {
 		num = math.MaxInt32
 		if conc <= 0 {
@@ -139,15 +119,12 @@ func main() {
 		if num <= 0 || conc <= 0 {
 			usageAndExit("-n and -c cannot be smaller than 1.")
 		}
-
 		if num < conc {
 			usageAndExit("-n cannot be less than -c.")
 		}
 	}
-
 	url := flag.Args()[0]
 	method := strings.ToUpper(*m)
-
 	// set content-type
 	header := make(http.Header)
 	header.Set("Content-Type", *contentType)
@@ -163,11 +140,9 @@ func main() {
 		}
 		header.Set(match[1], match[2])
 	}
-
 	if *accept != "" {
 		header.Set("Accept", *accept)
 	}
-
 	// set basic auth if set
 	var username, password string
 	if *authHeader != "" {
@@ -177,7 +152,6 @@ func main() {
 		}
 		username, password = match[1], match[2]
 	}
-
 	var bodyAll []byte
 	if *body != "" {
 		bodyAll = []byte(*body)
@@ -189,7 +163,6 @@ func main() {
 		}
 		bodyAll = slurp
 	}
-
 	var proxyURL *gourl.URL
 	if *proxyAddr != "" {
 		var err error
@@ -198,7 +171,6 @@ func main() {
 			usageAndExit(err.Error())
 		}
 	}
-
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		usageAndExit(err.Error())
@@ -207,12 +179,10 @@ func main() {
 	if username != "" || password != "" {
 		req.SetBasicAuth(username, password)
 	}
-
 	// set host header if set
 	if *hostHeader != "" {
 		req.Host = *hostHeader
 	}
-
 	ua := req.UserAgent()
 	if ua == "" {
 		ua = heyUA
@@ -221,13 +191,11 @@ func main() {
 	}
 	header.Set("User-Agent", ua)
 	req.Header = header
-
 	// by default we use insecure TLS verification
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         req.Host,
 	}
-
 	// see: https://gist.github.com/michaljemala/d6f4e01c4834bf47a9c4
 	if *caFile != "" && *certFile != "" && *keyFile != "" {
 		// Load client cert
@@ -243,14 +211,13 @@ func main() {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 		// Setup HTTPS client
-		tlsConfig := &tls.Config{
+		tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      caCertPool,
 			ServerName:   req.Host,
 		}
 		tlsConfig.BuildNameToCertificate()
 	}
-
 	w := &requester.Work{
 		Request:            req,
 		TlsConfig:          tlsConfig,
@@ -267,7 +234,6 @@ func main() {
 		Output:             *output,
 	}
 	w.Init()
-
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -282,13 +248,11 @@ func main() {
 	}
 	w.Run()
 }
-
 func errAndExit(msg string) {
 	fmt.Fprintf(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "\n")
 	os.Exit(1)
 }
-
 func usageAndExit(msg string) {
 	if msg != "" {
 		fmt.Fprintf(os.Stderr, msg)
@@ -298,7 +262,6 @@ func usageAndExit(msg string) {
 	fmt.Fprintf(os.Stderr, "\n")
 	os.Exit(1)
 }
-
 func parseInputWithRegexp(input, regx string) ([]string, error) {
 	re := regexp.MustCompile(regx)
 	matches := re.FindStringSubmatch(input)
@@ -307,13 +270,10 @@ func parseInputWithRegexp(input, regx string) ([]string, error) {
 	}
 	return matches, nil
 }
-
 type headerSlice []string
-
 func (h *headerSlice) String() string {
 	return fmt.Sprintf("%s", *h)
 }
-
 func (h *headerSlice) Set(value string) error {
 	*h = append(*h, value)
 	return nil
